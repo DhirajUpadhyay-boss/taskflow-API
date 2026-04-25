@@ -2,14 +2,10 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/user.model');
 
-/**
- * POST /api/auth/register
- *
- * Registers a new user.
- *   1. Checks email uniqueness → 409 if already exists.
- *   2. Creates the user (password hashed by the pre-save hook in user.model.js).
- *   3. Returns 201 with user data (no password — select:false on schema).
- */
+// Register a new user
+// 1. Check if the email is already in the database
+// 2. If it is new, save the user (the password gets scrambled automatically)
+// 3. Send back a success message and the user's basic info
 const register = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -41,17 +37,10 @@ const register = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/auth/login
- *
- * Authenticates a user and returns a signed JWT.
- *   1. Looks up user by email (explicitly selecting password field).
- *   2. Compares plain password with hash via user.comparePassword().
- *   3. Signs a JWT containing { id, email }.
- *
- * Note: Both "user not found" and "wrong password" return 401 with the
- *       same message to prevent email enumeration attacks.
- */
+// Log a user in
+// 1. Find the user in the database by their email, and grab their password
+// 2. Check if the typed password matches the scrambled password in the database
+// 3. Create a secret JWT token so the user stays logged in without needing to type their password again
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;

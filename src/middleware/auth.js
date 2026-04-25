@@ -1,18 +1,10 @@
 'use strict';
 const jwt = require('jsonwebtoken');
 
-/**
- * Authentication middleware.
- *
- * Expects the Authorization header in the format: Bearer <token>
- *
- * On success: attaches decoded user payload ({ id, email }) to req.user.
- * On failure: passes a structured error to the global error handler.
- *
- * Errors handled:
- *   401 — Missing or malformed Authorization header
- *   401 — Token expired (JsonWebTokenError / TokenExpiredError)
- */
+// This middleware acts like a bouncer at a club for our private routes!
+// It checks if the user sent a valid "Bearer Token" in their headers.
+// If the token is good, it lets them in and attaches their info to req.user.
+// If the token is fake or expired, it kicks them out with a 401 error.
 const auth = (req, _res, next) => {
   try {
     const authHeader = req.headers.authorization;

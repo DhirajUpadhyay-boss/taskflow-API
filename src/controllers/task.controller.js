@@ -1,11 +1,9 @@
 'use strict';
 const Task = require('../models/task.model');
 
-/**
- * Helper — fetch task by _id AND verify ownership.
- * Returns the task document if found and owned by userId.
- * Throws structured errors for 404 and 403.
- */
+// A helper function to find a task AND make sure the logged-in user actually owns it!
+// If the task doesn't exist, we send a 404 error.
+// If the task belongs to someone else, we send a 403 Forbidden error.
 const getOwnedTask = async (taskId, userId) => {
   const task = await Task.findById(taskId);
 
@@ -25,12 +23,8 @@ const getOwnedTask = async (taskId, userId) => {
 };
 
 // ─── Create Task ──────────────────────────────────────────────────────────────
-/**
- * POST /api/tasks
- *
- * Creates a new task for the authenticated user.
- * userId is taken from req.user (JWT payload) — never from request body.
- */
+// Create a new task
+// We grab the user's ID directly from their secure token, so they can't fake it
 const createTask = async (req, res, next) => {
   try {
     const { title, description, dueDate, status } = req.body;
@@ -61,12 +55,8 @@ const createTask = async (req, res, next) => {
 };
 
 // ─── Get All Tasks ────────────────────────────────────────────────────────────
-/**
- * GET /api/tasks
- *
- * Returns all tasks belonging to the authenticated user.
- * Sorted by createdAt descending (newest first).
- */
+// Get all tasks for the logged-in user
+// We filter the database by their ID and sort them newest to oldest
 const getAllTasks = async (req, res, next) => {
   try {
     const tasks = await Task.find({ userId: req.user.id }).sort({ createdAt: -1 });
@@ -82,12 +72,8 @@ const getAllTasks = async (req, res, next) => {
 };
 
 // ─── Get Single Task ──────────────────────────────────────────────────────────
-/**
- * GET /api/tasks/:id
- *
- * Returns a single task by MongoDB _id.
- * Enforces ownership — returns 403 if task belongs to another user.
- */
+// Get a single task by its ID
+// We use our helper function to make sure they own it first!
 const getTaskById = async (req, res, next) => {
   try {
     const task = await getOwnedTask(req.params.id, req.user.id);
@@ -105,12 +91,8 @@ const getTaskById = async (req, res, next) => {
 };
 
 // ─── Update Task ──────────────────────────────────────────────────────────────
-/**
- * PATCH /api/tasks/:id
- *
- * Partially updates a task. Only fields present in req.body are changed.
- * Ownership is verified before update.
- */
+// Update a task
+// First we check if they own it, then we only update the specific fields they sent us
 const updateTask = async (req, res, next) => {
   try {
     const task = await getOwnedTask(req.params.id, req.user.id);
@@ -147,11 +129,8 @@ const updateTask = async (req, res, next) => {
 };
 
 // ─── Delete Task ──────────────────────────────────────────────────────────────
-/**
- * DELETE /api/tasks/:id
- *
- * Deletes a task. Ownership is verified before deletion.
- */
+// Delete a task
+// First we check if they own it, then we delete it from the database forever
 const deleteTask = async (req, res, next) => {
   try {
     const task = await getOwnedTask(req.params.id, req.user.id);
