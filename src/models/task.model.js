@@ -35,6 +35,15 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
+      default: null,
+    },
+    tags: {
+      type: [String],
+      default: [],
+    },
     status: {
       type: String,
       enum: {

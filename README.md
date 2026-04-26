@@ -53,13 +53,23 @@ Protected routes (🔒) require: `Authorization: Bearer <token>`
 
 ### Tasks (all 🔒)
 
-| Method | Endpoint           | Body                                                                  | Response               |
-| ------ | ------------------ | --------------------------------------------------------------------- | ---------------------- |
-| POST   | `/api/tasks`       | `{ "title": "...", "description?": "...", "dueDate?": "YYYY-MM-DD", "status?": "pending\|completed" }` | `201` — created task |
-| GET    | `/api/tasks`       | —                                                                     | `200` — array of tasks |
-| GET    | `/api/tasks/:id`   | —                                                                     | `200` — single task    |
-| PATCH  | `/api/tasks/:id`   | Any subset of task fields (at least 1)                                | `200` — updated task   |
-| DELETE | `/api/tasks/:id`   | —                                                                     | `200` — success msg    |
+| Method | Endpoint           | Body / Query                                                                  | Response               |
+| ------ | ------------------ | ----------------------------------------------------------------------------- | ---------------------- |
+| POST   | `/api/tasks`       | `{ "title": "...", "description?": "...", "dueDate?": "ISO8601", "status?": "...", "categoryId?": "ID", "tags?": ["..."] }` | `201` — created task |
+| GET    | `/api/tasks`       | Query: `?categoryId=...&tags=tag1,tag2` (all optional)                         | `200` — array of tasks |
+| GET    | `/api/tasks/:id`   | —                                                                             | `200` — single task    |
+| PATCH  | `/api/tasks/:id`   | Any subset of task fields (at least 1)                                        | `200` — updated task   |
+| DELETE | `/api/tasks/:id`   | —                                                                             | `200` — success msg    |
+
+### Categories (all 🔒)
+
+| Method | Endpoint              | Body                                  | Response          |
+| ------ | --------------------- | ------------------------------------- | ----------------- |
+| POST   | `/api/categories`     | `{ "name": "...", "description?": "..." }` | `201` — created category |
+| GET    | `/api/categories`     | —                                     | `200` — array of categories |
+| GET    | `/api/categories/:id` | —                                     | `200` — single category |
+| PUT    | `/api/categories/:id` | `{ "name?": "...", "description?": "..." }` | `200` — updated category |
+| DELETE | `/api/categories/:id` | —                                     | `200` — success msg |
 
 ### Health
 
@@ -97,3 +107,6 @@ src/
 - **Ownership isolation** — Every task query filters by `userId` from the JWT, so users can never access others' tasks.
 - **Password security** — Hashed via bcrypt pre-save hook; `select: false` hides the hash from all queries by default.
 - **Global error handler** — All errors flow through one middleware, producing a consistent JSON shape. Stack traces hidden in production.
+- **Real-time Reminders** — Uses `agenda.js` with MongoDB for persistent, reliable job scheduling. Reminders are automatically rescheduled or cancelled based on task updates.
+- **External Integration** — Integrated `axios` with exponential backoff retry logic for reliable webhook delivery on task completion.
+- **Dynamic Categorization** — Users can create their own categories for personalized task organization, with built-in uniqueness constraints per user.

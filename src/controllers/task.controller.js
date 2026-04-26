@@ -1,5 +1,7 @@
 'use strict';
 const Task = require('../models/task.model');
+const agendaService = require('../services/agenda.service');
+const webhookService = require('../services/webhook.service');
 
 // A helper function to find a task AND make sure the logged-in user actually owns it!
 // If the task doesn't exist, we send a 404 error.
@@ -27,7 +29,7 @@ const getOwnedTask = async (taskId, userId) => {
 // We grab the user's ID directly from their secure token, so they can't fake it
 const createTask = async (req, res, next) => {
   try {
-    const { title, description, dueDate, status } = req.body;
+    const { title, description, dueDate, status, categoryId, tags } = req.body;
 
     const task = await Task.create({
       userId: req.user.id,
@@ -35,7 +37,14 @@ const createTask = async (req, res, next) => {
       description,
       dueDate: dueDate || null,
       status: status || 'pending',
+      categoryId: categoryId || null,
+      tags: tags || [],
     });
+
+    // Schedule reminder if dueDate is provided
+    if (task.dueDate) {
+      await agendaService.scheduleReminder(task);
+    }
 
     return res.status(201).json({
       success: true,
@@ -59,7 +68,20 @@ const createTask = async (req, res, next) => {
 // We filter the database by their ID and sort them newest to oldest
 const getAllTasks = async (req, res, next) => {
   try {
-    const tasks = await Task.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const { categoryId, tags } = req.query;
+    const query = { userId: req.user.id };
+
+    if (categoryId) {
+      query.categoryId = categoryId;
+    }
+
+    if (tags) {
+      // tags can be a single string or an array of strings
+      const tagsArray = Array.isArray(tags) ? tags : tags.split(',');
+      query.tags = { $all: tagsArray };
+    }
+
+    const tasks = await Task.find(query).sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -96,8 +118,10 @@ const getTaskById = async (req, res, next) => {
 const updateTask = async (req, res, next) => {
   try {
     const task = await getOwnedTask(req.params.id, req.user.id);
+    const oldStatus = task.status;
+    const oldDueDate = task.dueDate;
 
-    const allowedFields = ['title', 'description', 'dueDate', 'status'];
+    const allowedFields = ['title', 'description', 'dueDate', 'status', 'categoryId', 'tags'];
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) {
         task[field] = req.body[field];
@@ -106,6 +130,28 @@ const updateTask = async (req, res, next) => {
 
     // runValidators ensures Mongoose schema rules are re-checked on update
     await task.save({ validateBeforeSave: true });
+
+    // Handle Reminder updates
+    if (req.body.dueDate !== undefined || req.body.status !== undefined) {
+      await agendaService.scheduleReminder(task);
+    }
+
+    // Handle Webhook on completion
+    if (task.status === 'completed' && oldStatus !== 'completed') {
+      const webhookPayload = {
+        taskId: task._id,
+        title: task.title,
+        completionDate: new Date(),
+        userId: task.userId,
+      };
+      // Fire and forget or handle error? The requirement says implement retry logic, 
+      // which we did in the service. We'll call it without blocking the response.
+      if (process.env.ANALYTICS_WEBHOOK_URL) {
+        webhookService.sendWebhook(process.env.ANALYTICS_WEBHOOK_URL, webhookPayload).catch((err) => {
+          console.error('Failed to send completion webhook:', err.message);
+        });
+      }
+    }
 
     return res.status(200).json({
       success: true,
@@ -134,7 +180,11 @@ const updateTask = async (req, res, next) => {
 const deleteTask = async (req, res, next) => {
   try {
     const task = await getOwnedTask(req.params.id, req.user.id);
+    const taskId = task._id;
     await task.deleteOne();
+
+    // Cancel reminder
+    await agendaService.cancelReminder(taskId);
 
     return res.status(200).json({
       success: true,
