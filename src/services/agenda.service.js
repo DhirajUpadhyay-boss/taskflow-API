@@ -10,7 +10,7 @@ class AgendaService {
   async init() {
     this.agenda = new Agenda({
       db: { address: process.env.MONGO_URI, collection: 'agendaJobs' },
-      processEvery: '1 minute',
+      processEvery: '10 seconds',
     });
 
     this.defineJobs();
@@ -61,16 +61,8 @@ class AgendaService {
       return;
     }
 
-    // Upsert the job: one task, one reminder
-    await this.agenda.now('task-reminder', {
-      taskId: task._id,
-      userId: task.userId,
-      title: task.title,
-      dueDate: task.dueDate,
-    });
-    
-    // Actually, agenda's 'now' runs it immediately. We want 'schedule'.
-    // We should use a unique job name or property to identify the job for this task.
+    // Cancel any existing reminder for this task
+
     await this.agenda.cancel({ 'data.taskId': task._id });
     await this.agenda.schedule(reminderDate, 'task-reminder', {
       taskId: task._id,
